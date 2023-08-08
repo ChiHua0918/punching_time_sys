@@ -14,10 +14,10 @@ app = Flask(__name__)
 # clock in
 @app.route("/punchIn", methods = ["POST","PATCH"])
 def punchIn():
-    data = request.get_json()
+    parm = request.get_json()
     # 日常打卡
     if request.method == "POST":
-        employeeNumber = data["employeeNumber"]
+        employeeNumber = parm["employeeNumber"]
         nowTime = datetime.now()
         todayDate = nowTime.date()
         # 查詢當天的打卡紀錄
@@ -33,9 +33,9 @@ def punchIn():
             return jsonify({"msg":"Error: Fail to clock in"}),422
     # 補打卡
     elif request.method == "PATCH":
-        employeeNumber = data["employeeNumber"]
+        employeeNumber = parm["employeeNumber"]
         # string to datetime
-        clockIn = datetime.strptime(data["time"],"%Y-%m-%d %H:%M")
+        clockIn = datetime.strptime(parm["time"],"%Y-%m-%d %H:%M")
         pickDate = clockIn.date()
         # 查詢今天職員的打卡情況
         record = card.readCard(employeeNumber,pickDate)
@@ -60,10 +60,10 @@ def punchIn():
 # clock out
 @app.route("/punchOut", methods = ["POST","PATCH"])
 def punchOut():
-    data = request.get_json()
+    parm = request.get_json()
     # 日常打卡
     if request.method == "POST":
-        employeeNumber = data["employeeNumber"]
+        employeeNumber = parm["employeeNumber"]
         nowTime = datetime.now()
         todayDate = nowTime.date()
         # 查詢當天上班紀錄
@@ -86,10 +86,10 @@ def punchOut():
             return jsonify({"msg":"Error: Fail to clock out"}),422
     # 補打卡
     elif request.method == "PATCH":
-        employeeNumber = data["employeeNumber"]
-        clockOut = data["time"]
+        employeeNumber = parm["employeeNumber"]
+        clockOut = parm["time"]
         # string to datetime
-        clockOut = datetime.strptime(data["time"],"%Y-%m-%d %H:%M")
+        clockOut = datetime.strptime(parm["time"],"%Y-%m-%d %H:%M")
         pickDate = clockOut.date()
         record = card.readCard(employeeNumber,pickDate)
         # 不允許更新條件: 早於正常上班時間 FIXME： 不確定是不是有過夜班
@@ -167,9 +167,9 @@ def todayMenbersInfo():
 
 @app.route("/pickDateMenbersInfo", methods = ["GET"])
 def pickDateMenbersInfo():
-    data = request.get_json()
+    parm = request.get_json()
     # 防止日期輸入錯誤
-    pickDate = datetime.strptime(data["pickDate"],"%Y-%m-%d").date()
+    pickDate = datetime.strptime(parm["pickDate"],"%Y-%m-%d").date()
     menbers = employee.employees()
     result = list()
     for person in menbers:
@@ -209,33 +209,30 @@ def pickDateMenbersInfo():
         result.append(tmp)
     return jsonify(result)
 
-# 查詢指定日期區間未打卡下班 （若未打卡上班則不包括在內）
-@app.route("/intervalNotClockOut", methods = ["GET"])
-def intervalNotClockOut():
-    data = request.get_json()
-    timeStart = datetime.strptime(data["timeStart"],"%Y-%m-%d")
-    timeEnd = datetime.strptime(data["timeEnd"],"%Y-%m-%d")
-    column = "clock_in" # 未打卡下班
-    info = card.interval(timeStart,timeEnd,column)
+# 查詢指定日期區間未打卡下班 （若此區間未上班則不包括在內）
+@app.route("/intervalNotClock", methods = ["GET"])
+def intervalNotClock():
+    parm = request.get_json()
+    dateStart = datetime.strptime(parm["dateStart"],"%Y-%m-%d").date()
+    dateEnd = datetime.strptime(parm["dateEnd"],"%Y-%m-%d").date()
+    action = parm["action"]
+    data = card.interval(dateStart,dateEnd)
     result = list()
-    for row in info:
-        # 未打下班卡
-        if not row[2]:
-            result.append(row[0])
-    return result
+    for row in data:
+        if row[action] is None:
+            result.append(row["employeeNumber"])
+    return jsonify(result)
 
 @app.route("/rank", methods = ["GET"])
 def rank():
-    data = request.get_json()
-    pickDate = data["pickDate"]
-    num = data["num"]
+    parm = request.get_json()
+    pickDate = datetime.strptime(parm["pickDate"],"%Y-%m-%d").date()
+    num = parm["num"]
     info = card.getRank(pickDate,num)
     result = list()
     for row in info:
         result.append(row[0])
     return jsonify(result)
-def main():
-    app.run(port=5000,debug=True)
 
 if __name__ == "__main__":
-    main()
+    app.run(port=5000,debug=True)

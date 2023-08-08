@@ -57,12 +57,20 @@ def interval(dateStart,dateEnd):
                           WHERE (clock_out BETWEEN '{dateStart} 00:00:00' and '{dateEnd} 23:59:59');"
     # command = f"SELECT * FROM card WHERE {column} between '{dateStart}' and '{dateEnd}';"
     db.cursor.execute(command)
-    result = db.cursor.fetchall()
-    return result
+    info = db.cursor.fetchall()
+    data = list()
+    for i in info:
+        tmp = dict()
+        tmp["employeeNumber"] = i[0]
+        tmp["clockIn"] = i[1]
+        tmp["clockOut"] = i[2]
+        data.append(tmp)
+    return data
 
 # 取前幾名早到的人
 def getRank(pickDate,num):
-    command = f"SELECT * FROM card WHERE DATE_FORMAT(clock_in, '%Y-%m-%d') = '{pickDate}' ORDER BY 'clock_in' limit {num};"
+    command = f"SELECT employee_number, clock_in, clock_out FROM card WHERE DATE_FORMAT(clock_in, '%Y-%m-%d') = '{pickDate}' ORDER BY 'clock_in' limit {num};"
     db.cursor.execute(command)
     result = db.cursor.fetchall()
+    print(result)
     return result
