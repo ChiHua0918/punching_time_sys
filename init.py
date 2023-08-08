@@ -6,7 +6,7 @@ import module.employee as employee
 
 def main():
     # read init data
-    with open("./data/member.json","r") as file:
+    with open("./flask/data/member.json","r") as file:
         data = json.load(file)
         for i in range(len(data)):
             # error key
