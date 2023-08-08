@@ -17,7 +17,7 @@ def punchIn():
     parm = request.get_json()
     # 日常打卡
     if request.method == "POST":
-        employeeNumber = parm["employeeNumber"]
+        employeeNumber = int(parm["employeeNumber"])
         nowTime = datetime.now()
         todayDate = nowTime.date()
         # 查詢當天的打卡紀錄
@@ -33,7 +33,7 @@ def punchIn():
             return jsonify({"msg":"Error: Fail to clock in"}),422
     # 補打卡
     elif request.method == "PATCH":
-        employeeNumber = parm["employeeNumber"]
+        employeeNumber = int(parm["employeeNumber"])
         # string to datetime
         clockIn = datetime.strptime(parm["time"],"%Y-%m-%d %H:%M")
         pickDate = clockIn.date()
@@ -63,7 +63,7 @@ def punchOut():
     parm = request.get_json()
     # 日常打卡
     if request.method == "POST":
-        employeeNumber = parm["employeeNumber"]
+        employeeNumber = int(parm["employeeNumber"])
         nowTime = datetime.now()
         todayDate = nowTime.date()
         # 查詢當天上班紀錄
@@ -86,7 +86,7 @@ def punchOut():
             return jsonify({"msg":"Error: Fail to clock out"}),422
     # 補打卡
     elif request.method == "PATCH":
-        employeeNumber = parm["employeeNumber"]
+        employeeNumber = int(parm["employeeNumber"])
         clockOut = parm["time"]
         # string to datetime
         clockOut = datetime.strptime(parm["time"],"%Y-%m-%d %H:%M")
@@ -168,7 +168,7 @@ def todayMenbersInfo():
 @app.route("/pickDateMenbersInfo", methods = ["GET"])
 def pickDateMenbersInfo():
     parm = request.get_json()
-    # 防止日期輸入錯誤
+    # 防止日期輸入錯誤或 SQL injection
     pickDate = datetime.strptime(parm["pickDate"],"%Y-%m-%d").date()
     menbers = employee.employees()
     result = list()
@@ -230,7 +230,7 @@ def rank():
     num = parm["num"]
     data = card.getRank(pickDate,num)
     result = list()
-    for row in info:
+    for row in data:
         result.append(row["employeeNumber"])
     return jsonify(result)
 
