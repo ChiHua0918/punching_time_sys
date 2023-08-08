@@ -1,6 +1,8 @@
 import json
-import module.card as card
 import csv
+
+import module.card as card
+import module.employee as employee
 
 def main():
     # read init data
@@ -15,7 +17,9 @@ def main():
     # insert into table card
     for i in range(len(data)):
         print(data[i]['employeeNumber'],data[i]['clockIn'],data[i]['clockOut'])
-        card.insertCard(data[i]['employeeNumber'],data[i]['clockIn'],data[i]['clockOut'])
-
+        employee.insertEmployee(data[i]['employeeNumber'])
+        status = card.insertCard(data[i]['employeeNumber'],data[i]['clockIn'],data[i]['clockOut'])
+        if status == False:
+            print("Error:", employeeNumber)
 if __name__ == "__main__":
     main()

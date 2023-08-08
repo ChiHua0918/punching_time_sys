@@ -1,5 +1,5 @@
 from flask import Flask,request,jsonify
-from datetime import datetime
+from datetime import datetime,timedelta
 import module.card as card
 import module.employee as employee
 
@@ -116,16 +116,20 @@ def todayMenbersInfo():
     nowTime = datetime.now()
     todayDate = nowTime.date()
     menbers = employee.employees()
+    print(menbers)
     result = list()
     for person in menbers:
         employeeNumber = person[0]
-        record = card.readCard(employeeNumber,todayDate)[0]
+        record = card.readCard(employeeNumber,todayDate)
         restStart = datetime.strptime(str(todayDate)+" 12:00","%Y-%m-%d %H:%M")
         restEnd = datetime.strptime(str(todayDate)+" 13:30","%Y-%m-%d %H:%M")
-
+        #  沒有打卡紀錄
+        if record is None:
+            record = (employee,None,None)
+            restTime = timedelta(seconds=0)
         # 未打卡上班 或 目前為上午時段
-        if not record[1] or nowTime < restStart:
-            restTime = 0
+        elif not record[1] or nowTime < restStart:
+            restTime = timedelta(seconds=0)
         # 目前為中午時段 且 中午時段前打卡上班
         elif nowTime < restEnd and record[1] < restStart:
             restTime = nowTime - restStart
@@ -140,11 +144,11 @@ def todayMenbersInfo():
             restTime = restEnd - record[1]
         # 目前為下午時段 且 休息時間過後打卡
         elif nowTime > restEnd and record[1] > restEnd:
-            restTime = 0
+            restTime = timedelta(seconds=0)
         
         # 未打卡上班
         if not record[1]:
-            workTime = 0
+            workTime = timedelta(seconds=0)
         # 目前上班中
         elif not record[2]:
             workTime = nowTime-record[1]
@@ -153,7 +157,7 @@ def todayMenbersInfo():
             workTime = record[2] - record[1]
 
         tmp = dict()
-        tmp["employeeNumber"] = record[0]
+        tmp["employeeNumber"] = employeeNumber
         tmp["clockIn"] = record[1]
         tmp["clockOut"] = record[2]
         tmp["restTime"] = restTime.total_seconds()/(60*60)
@@ -164,19 +168,25 @@ def todayMenbersInfo():
 @app.route("/pickDateMenbersInfo", methods = ["GET"])
 def pickDateMenbersInfo():
     data = request.get_json()
-    pickDate = datetime.strptime(data["pickDate"],"%Y-%m-%d")
+    # 防止日期輸入錯誤
+    pickDate = datetime.strptime(data["pickDate"],"%Y-%m-%d").date()
     menbers = employee.employees()
     result = list()
     for person in menbers:
         employeeNumber = person[0]
-        record = card.readCard(employeeNumber,todayDate)[0]
-        restStart = datetime.strptime(str(todayDate)+" 12:00","%Y-%m-%d %H:%M")
-        restEnd = datetime.strptime(str(todayDate)+" 13:30","%Y-%m-%d %H:%M")
-
+        record = card.readCard(employeeNumber,pickDate)
+        print(str(pickDate)+" 12:00")
+        restStart = datetime.strptime(str(pickDate)+" 12:00","%Y-%m-%d %H:%M")
+        restEnd = datetime.strptime(str(pickDate)+" 13:30","%Y-%m-%d %H:%M")
+        
         # 未打卡上班或下班
-        if not record[1] or not record[2]:
-            restTime = 0
-            workTime = 0
+        if record is None:
+            record = (employee,None,None)
+            restTime = timedelta(seconds=0)
+            workTime = timedelta(seconds=0)
+        elif not record[1] or not record[2]:
+            restTime = timedelta(seconds=0)
+            workTime = timedelta(seconds=0)
         # 中午時段前打卡上班
         elif record[1] < restStart:
             restTime = restEnd - restStart
@@ -187,11 +197,11 @@ def pickDateMenbersInfo():
             workTime = record[2] - record[1]
         # 中午時段後打卡上班
         elif record[1] > restEnd:
-            restTime = 0
+            restTime = timedelta(seconds=0)
             workTime = record[2] - record[1]
 
         tmp = dict()
-        tmp["employeeNumber"] = record[0]
+        tmp["employeeNumber"] = employeeNumber
         tmp["clockIn"] = record[1]
         tmp["clockOut"] = record[2]
         tmp["restTime"] = restTime.total_seconds()/(60*60)
