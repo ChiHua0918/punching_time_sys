@@ -20,16 +20,17 @@ def punchIn():
         employeeNumber = data["employeeNumber"]
         nowTime = datetime.now()
         todayDate = nowTime.date()
+        # 查詢當天的打卡紀錄
         record = card.readCard(employeeNumber,todayDate)
         # 上班時間超過下班時間
         if nowTime > datetime.strptime(str(todayDate)+" 17:30","%Y-%m-%d %H:%M"):
-            return jsonify({"msg":"It's over time"}),422
+            return jsonify({"msg":"Error: It's over time"}),422
         # 重複打卡
-        elif len(record) != 0:
-            return jsonify({"msg":"It's already clocked in."}),422
+        elif record:
+            return jsonify({"msg":"Error: It's already clocked in or already clocked out."}),422
         # 上班打卡失敗
         elif card.insertCard(employeeNumber,nowTime,None) == False:
-            return jsonify({"msg":"Fail to clock in"}),422
+            return jsonify({"msg":"Error: Fail to clock in"}),422
     # 補打卡
     elif request.method == "PATCH":
         employeeNumber = data["employeeNumber"]
@@ -38,21 +39,22 @@ def punchIn():
         pickDate = clockIn.date()
         # 查詢今天職員的打卡情況
         record = card.readCard(employeeNumber,pickDate)
-        # 不允許更新條件：已經有上班打卡紀錄
-        if record[1]:
-            return jsonify({"msg":"It's already clocked in."}),422
+        print(record)
+        # 不允許更新條件：超過正常下班時間
+        if clockIn > datetime.strptime(str(pickDate)+" 17:30","%Y-%m-%d %H:%M"):
+            return jsonify({"msg":"Error: Exceed regular time."}),422
         # 這天沒有上下班紀錄 -> 新增紀錄
-        elif not record[2]:
+        elif record is None:
             card.insertCard(employeeNumber,clockIn,None)
+        # 不允許更新條件：已經有上班打卡紀錄
+        elif record[1]:
+            return jsonify({"msg":"Error: It's already clocked in."}),422
         # 不允許更新條件：補打卡時間晚於下班打卡
         elif clockIn > record[2]:
-            return jsonify({"msg":"The clock-out time is earlier than the clock-in time."}),422
-        # 不允許更新條件：超過正常下班時間
-        elif clockIn > datetime.strptime(str(pickDate)+" 17:30","%Y-%m-%d %H:%M"):
-            return jsonify({"msg":"Exceed regular time."}),422
+            return jsonify({"msg":"Error: The clock-out time is earlier than the clock-in time."}),422
         # 更新失敗
-        elif card.updateCard(employeeNumber,clockIn,record[2]) == False:
-            return jsonify({"msg":"Fail to clock in"}),422
+        elif card.updateCard(employeeNumber,clockIn,record[2],pickDate) == False:
+            return jsonify({"msg":"Error: Fail to clock in"}),422
 
     return jsonify({"msg":"Successful"}),200
 # clock out
@@ -66,21 +68,22 @@ def punchOut():
         todayDate = nowTime.date()
         # 查詢當天上班紀錄
         record = card.readCard(employeeNumber,todayDate)
+        # FIXME： Exceed regular time 不確定有沒有夜班
+        if nowTime < datetime.strptime(str(todayDate)+" 08:00","%Y-%m-%d %H:%M"):
+            return jsonify({"msg":"Error: Exceed regular time."}),422
         # 忘記打卡上班
-        if len(record) == 0:
-            card.insertCard(employeeNumber,None,clockOut)
+        elif record is None:
+            card.insertCard(employeeNumber,None,nowTime)
             return jsonify({"msg":"Insert into the clock-out time."}),200
         # 重複打卡
         elif record[2]:
-            return jsonify({"msg":"It's already clocked out."}),422
-        # 下班時間超過上班時間
-        elif record[1] > nowTime.time():
-            return jsonify({"msg":"The clock-out time is earlier than the clock-in time."}),422
-        # FIXME： Exceed regular time 不確定有沒有夜班
-        elif record[2] < datetime.strptime(str(todayDate)+" 08:00","%Y-%m-%d %H:%M"):
-            return jsonify({"msg":"Exceed regular time."}),422
+            return jsonify({"msg":"Error: It's already clocked out."}),422
+        # 下班時間早於上班時間
+        elif record[1] > nowTime:
+            return jsonify({"msg":"Error: The clock-out time is earlier than the clock-in time."}),422
+        # 打卡失敗
         elif card.updateCard(employeeNumber,record[1],nowTime) == False:
-            return jsonify({"msg":"Fail to clock out"}),422
+            return jsonify({"msg":"Error: Fail to clock out"}),422
     # 補打卡
     elif request.method == "PATCH":
         employeeNumber = data["employeeNumber"]
@@ -89,21 +92,21 @@ def punchOut():
         clockOut = datetime.strptime(data["time"],"%Y-%m-%d %H:%M")
         pickDate = clockOut.date()
         record = card.readCard(employeeNumber,pickDate)
-        # 不允許更新條件：已經有下班打卡紀錄
-        if record[2]:
-            return jsonify({"msg":"It's already clocked out."}),422
-        # 這天沒有上下班紀錄 -> 新增紀錄
-        elif not record[1]:
-            card.insertCard(employeeNumber,None,clockOut)
-        # 不允許更新條件：補打卡時間晚於上班打卡
-        elif clockOut < record[1]:
-            return jsonify({"msg":"The clock-out time is earlier than the clock-in time."}),422
         # 不允許更新條件: 早於正常上班時間 FIXME： 不確定是不是有過夜班
-        elif clockOut < datetime.strptime(str(pickDate)+" 08:00","%Y-%m-%d %H:%M"):
-            return jsonify({"msg":"Exceed regular time."}),422
+        if clockOut < datetime.strptime(str(pickDate)+" 08:00","%Y-%m-%d %H:%M"):
+            return jsonify({"msg":"Error: Exceed regular time."}),422
+        # 這天沒有上下班紀錄 -> 新增紀錄
+        elif record is None:
+            card.insertCard(employeeNumber,None,clockOut)
+        # 不允許更新條件：已經有下班打卡紀錄
+        elif record[2]:
+            return jsonify({"msg":"Error: It's already clocked out."}),422
+        # 不允許更新條件：補打卡時間早於上班打卡
+        elif clockOut < record[1]:
+            return jsonify({"msg":"Error: The clock-out time is earlier than the clock-in time."}),422
         # 更新失敗
-        elif card.updateCard(employeeNumber,record[1],clockOut) == False:
-            return jsonify({"msg":"Fail to clock out"}),422
+        elif card.updateCard(employeeNumber,record[1],clockOut,pickDate) == False:
+            return jsonify({"msg":"Error: Fail to clock out"}),422
 
     return jsonify({"msg":"Successful"}),200
 
@@ -200,8 +203,8 @@ def pickDateMenbersInfo():
 @app.route("/intervalNotClockOut", methods = ["GET"])
 def intervalNotClockOut():
     data = request.get_json()
-    timeStart = data["timeStart"]
-    timeEnd = data["timeEnd"]
+    timeStart = datetime.strptime(data["timeStart"],"%Y-%m-%d")
+    timeEnd = datetime.strptime(data["timeEnd"],"%Y-%m-%d")
     column = "clock_in" # 未打卡下班
     info = card.interval(timeStart,timeEnd,column)
     result = list()
@@ -215,7 +218,7 @@ def intervalNotClockOut():
 def rank():
     data = request.get_json()
     pickDate = data["pickDate"]
-    num = 5 # 取前幾名
+    num = data["num"]
     info = card.getRank(pickDate,num)
     result = list()
     for row in info:

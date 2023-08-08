@@ -23,19 +23,23 @@ def insertCard(employeeNumber, clockIn, clockOut):
 
 def readCard(employeeNumber,todayDate):
     if employeeNumber:
-        command = f"SELECT * FROM card WHERE employee_number = {employeeNumber} and DATE_FORMAT(clock_in, '%Y-%m-%d') = '{todayDate}';"
-    else:
-        command = f"SELECT * FROM card WHERE DATE_FORMAT(clock_in, '%Y-%m-%d') = '{todayDate}';"
+        command = f"SELECT employee_number, clock_in, clock_out FROM card \
+                    WHERE employee_number = {employeeNumber} and DATE_FORMAT(clock_in, '%Y-%m-%d') = '{todayDate}' \
+                    UNION \
+                    SELECT employee_number, clock_in ,clock_out FROM card \
+                    WHERE employee_number = {employeeNumber} and DATE_FORMAT(clock_out, '%Y-%m-%d') = '{todayDate}';"
+    # command = f"SELECT * FROM card WHERE DATE_FORMAT({column}, '%Y-%m-%d') = '{todayDate}';"
     db.cursor.execute(command)
-    result = db.cursor.fetchall() # ((employee_number,clock_in,clock_out),()...)
-    # FIXME： 可能回傳兩筆資料，一個是中午，一個是下午
+    result = db.cursor.fetchone() # ((employee_number,clock_in,clock_out),()...)
     return result
 
-def updateCard(employeeNumber,clockIn,clockOut):
-    if clock_in:
-        command = f"UPDATE card SET clock_in = {clockIn} WHERE employee_number = {employeeNumber};"
-    elif clock_out:
-        command = f"UPDATE card SET clock_out = {clock_out} WHERE employee_number = {employeeNumber};"
+def updateCard(employeeNumber,clockIn,clockOut,pickDate):
+    if clockIn and clockOut:
+        command = f"UPDATE card SET clock_in = '{clockIn}', clock_out = '{clockOut}' WHERE employee_number = {employeeNumber} and DATE_FORMAT(clock_in, '%Y-%m-%d') = '{pickDate}';"
+    elif clockIn:
+        command = f"UPDATE card SET clock_in = '{clockIn}' WHERE employee_number = {employeeNumber} and DATE_FORMAT(clock_in, '%Y-%m-%d') = '{pickDate}';"
+    elif clockOut:
+        command = f"UPDATE card SET clock_out = '{clock_out}' WHERE employee_number = {employeeNumber} and DATE_FORMAT(clock_out, '%Y-%m-%d') = '{pickDate}';"
     try:
         db.cursor.execute(command)
         db.connection.commit()
@@ -45,8 +49,13 @@ def updateCard(employeeNumber,clockIn,clockOut):
         return False
 
 # 指定日期區間有打卡職員
-def interval(timeStart,timeEnd,column):
-    command = f"SELECT * FROM card WHERE {column} between '{timeStart}' and '{timeEnd}';"
+def interval(dateStart,dateEnd):
+    command = command = f"SELECT employee_number, clock_in, clock_out FROM card \
+                          WHERE (clock_in BETWEEN '{dateStart} 00:00:00' and '{dateEnd} 23:59:59') \
+                          UNION \
+                          SELECT employee_number, clock_in ,clock_out FROM card \
+                          WHERE (clock_out BETWEEN '{dateStart} 00:00:00' and '{dateEnd} 23:59:59');"
+    # command = f"SELECT * FROM card WHERE {column} between '{dateStart}' and '{dateEnd}';"
     db.cursor.execute(command)
     result = db.cursor.fetchall()
     return result
