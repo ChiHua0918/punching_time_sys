@@ -228,10 +228,10 @@ def rank():
     parm = request.get_json()
     pickDate = datetime.strptime(parm["pickDate"],"%Y-%m-%d").date()
     num = parm["num"]
-    info = card.getRank(pickDate,num)
+    data = card.getRank(pickDate,num)
     result = list()
     for row in info:
-        result.append(row[0])
+        result.append(row["employeeNumber"])
     return jsonify(result)
 
 if __name__ == "__main__":

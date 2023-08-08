@@ -71,6 +71,12 @@ def interval(dateStart,dateEnd):
 def getRank(pickDate,num):
     command = f"SELECT employee_number, clock_in, clock_out FROM card WHERE DATE_FORMAT(clock_in, '%Y-%m-%d') = '{pickDate}' ORDER BY 'clock_in' limit {num};"
     db.cursor.execute(command)
-    result = db.cursor.fetchall()
-    print(result)
-    return result
+    info = db.cursor.fetchall()
+    data = list()
+    for i in info:
+        tmp = dict()
+        tmp["employeeNumber"] = i[0]
+        tmp["clockIn"] = i[1]
+        tmp["clockOut"] = i[2]
+        data.append(tmp)
+    return data
