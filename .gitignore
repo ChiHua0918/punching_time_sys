@@ -1,3 +1,13 @@
+flask/__pycache__
 flask/module/__pycache__
+flask/log
 flask/db_settings.json
+.env
 test.py
+
+mysql
+init copy.py
+# docker
+docker-compose.yml
+flask/Dockerfile
+flask/requirements.txt
